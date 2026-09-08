@@ -1,19 +1,25 @@
-# Call Recording → Google Sheet (Round | Questions)
+# Interview Debrief Call → Google Sheet
 
-Upload interview-debrief call recordings → it transcribes them, pulls out every
-question the learner was asked, expands shorthand into full sentences, and appends
-them to a Google Sheet as **two columns only**:
+Upload debrief call recordings (calls with candidates who interviewed at a company).
+It transcribes each call, reconstructs every interview question the candidate was
+asked, works out the rejection reason, and appends to a Google Sheet:
 
-| Round | Questions |
-|---|---|
-| R1 | Solve a balanced parentheses problem … |
-| R1 | Write an SQL query based on a given requirement … |
-| R2 | Using the sliding window technique, calculate the average of each window … |
+| Phone Number | Round | Questions | Reason for Rejection |
+|---|---|---|---|
+| 9876543210 | R1 | Solve a balanced parentheses problem … | Rejected - weak on system design fundamentals |
+| 9876543210 | R1 | Write an SQL query based on a given requirement … | Rejected - weak on system design fundamentals |
+| 9123456789 | | No questions collected from the call | Company Unresponsive |
 
-No job IDs, names, modules, or rejection reasons — just the questions.
+Rules:
+- **Phone number** — taken from the call if stated, else from the filename, else typed in the UI.
+- **Reason for Rejection** — extracted from the transcript in plain readable form. If the
+  candidate was rejected but no reason is stated anywhere → `Company Unresponsive`.
+  If they cleared / got an offer → that is stated instead.
+- **No questions found** — not an error; one row is written with
+  `No questions collected from the call`.
 
 ## Pipeline
-`audio → OpenAI Whisper transcript → Gemini question extraction → gspread append`
+`audio → OpenAI Whisper transcript → Gemini extraction (questions + phone + outcome) → gspread append`
 
 ## Setup
 
@@ -37,7 +43,8 @@ cp config.example.yaml config.yaml   # then fill in (see below)
 2. IAM & Admin → Service Accounts → create → Keys → Add Key → JSON → save as `call-doc-automation/credentials.json`.
 3. Open your Sheet → Share → paste the service-account email (`…@….iam.gserviceaccount.com`) → **Editor**.
 
-The first write adds a `Round | Questions` header row if the sheet doesn't have one.
+The first write adds a `Phone Number | Round | Questions | Reason for Rejection`
+header row if the sheet doesn't have one.
 
 ## Use it — the UI (recommended)
 
@@ -46,14 +53,15 @@ The first write adds a `Round | Questions` header row if the sheet doesn't have 
 ```
 
 Opens in the browser. Drag in one or more recordings → **① Transcribe & extract** →
-review/edit the questions in the table (fix wording, delete junk rows) → **② Append to Google Sheet**.
+for each call confirm the **phone number** and **reason for rejection**, review/edit the
+questions in the table → **② Append to Google Sheet**.
 
 ## Use it — the CLI
 
 ```bash
 .venv/bin/python process_call.py call1.m4a call2.mp3          # extract + append
 .venv/bin/python process_call.py call.m4a --dry-run           # preview only
-.venv/bin/python process_call.py call.m4a --save-transcript   # keep the transcript
+.venv/bin/python process_call.py call.m4a --phone 9876543210  # set the phone number
 .venv/bin/python process_call.py notes.txt --transcript       # already have text
 ```
 
@@ -64,7 +72,7 @@ review/edit the questions in the table (fix wording, delete junk rows) → **②
 | `process_call.py` | CLI entrypoint |
 | `transcription.py` | OpenAI Whisper wrapper (25 MB/file limit guard) |
 | `extraction.py` | Gemini call + prompt + strict-JSON parse + retry |
-| `sheets_writer.py` | two-column append via gspread |
+| `sheets_writer.py` | 4-column append via gspread (+ transient-error retry) |
 | `config.py` | config.yaml + env var loading |
 
 ## Deploy (Streamlit Community Cloud — free, best fit)

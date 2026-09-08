@@ -7,6 +7,6 @@ google_credentials_file: "credentials.json"   # service account JSON key
 openai_api_key: "sk-..."      # Whisper transcription; or set env OPENAI_API_KEY
 gemini_api_key: "AIza..."     # question extraction; or set env GEMINI_API_KEY
 
-transcription_model: "whisper-1"       # or "gpt-4o-transcribe"
-extraction_model: "gemini-2.5-flash"   # or "gemini-2.5-pro"
+transcription_model: "whisper-1"       # or "gpt-4o-transcribe" (better on noisy calls)
+extraction_model: "gemini-2.5-pro"     # accuracy-first; "gemini-2.5-flash" is cheaper/faster
 extraction_max_tokens: 8000
