@@ -1,4 +1,4 @@
-"""Transcript -> structured call result (JSON), via the Google Gemini API.
+"""Transcript -> structured call result (JSON), via the OpenAI API.
 
 Returns, per call:
   {
@@ -17,8 +17,7 @@ Design notes:
 import json
 import re
 
-from google import genai
-from google.genai import types
+from openai import OpenAI
 
 SYSTEM_PROMPT = """You document debrief calls. On each call, a caller speaks with a \
 candidate who recently interviewed at a company. Your job is to reconstruct, accurately \
@@ -36,8 +35,9 @@ SQL, project deep-dives, and behavioral/HR questions.
 - NEVER group multiple questions into one row. NEVER leave shorthand — expand each into a \
 clear, self-contained sentence understandable with zero context. Keep the technical \
 substance precise (name the exact algorithm/pattern/topic when the candidate states it).
-- Do NOT invent questions that were not discussed. If the candidate is vague ("some array \
-question"), write the most faithful version you can and keep it appropriately general.
+- Do NOT invent questions or specifics that were not discussed. If the candidate is vague \
+("some array question", "a SQL query"), write a faithful general version and explicitly \
+note that the details were not specified. Never fabricate example data or requirements.
 - Rounds: label "R1", "R2", "R3"... in the order they happened. If the candidate never \
 separates rounds, put everything in "R1".
 - Ignore scheduling talk, salary talk, pleasantries, and the caller's own commentary.
@@ -46,7 +46,7 @@ Example:
   Input:  "first round was online, load code medium, balance parenthesis. then they asked sql query and some cabka questions"
   Rows:
     R1 -> "Solve a LeetCode-medium problem: given a string of brackets ()[]{}, determine whether it is balanced."
-    R1 -> "Write an SQL query for a given requirement (filtering / joins / aggregation)."
+    R1 -> "Write an SQL query for a given requirement (the specific requirement was not stated on the call)."
     R1 -> "Answer basic Kafka questions - topics, brokers, producers, consumers."
 
 === PHONE NUMBER ===
@@ -63,13 +63,12 @@ plainly and specifically, e.g. "Rejected - weak on system design fundamentals", 
 - If the candidate cleared the process / got an offer / is still in process -> state that, \
 e.g. "Selected", "Cleared all rounds - offer awaited", "In process - next round pending".
 
-=== OUTPUT ===
-STRICT JSON only, no prose, no markdown fences:
-{"phone_number": "", "reason_for_rejection": "", "rows": [{"round": "R1", "question": "..."}]}
+Return ONLY the structured object.
 """
 
 _RESPONSE_SCHEMA = {
     "type": "object",
+    "additionalProperties": False,
     "properties": {
         "phone_number": {"type": "string"},
         "reason_for_rejection": {"type": "string"},
@@ -77,6 +76,7 @@ _RESPONSE_SCHEMA = {
             "type": "array",
             "items": {
                 "type": "object",
+                "additionalProperties": False,
                 "properties": {
                     "round": {"type": "string"},
                     "question": {"type": "string"},
@@ -110,22 +110,13 @@ def detect_phone_from_name(filename: str) -> str:
     return normalize_phone(m.group(1)) if m else ""
 
 
-def _parse(text: str) -> dict:
-    text = (text or "").strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1].rsplit("```", 1)[0]
-    start, end = text.find("{"), text.rfind("}")
-    if start == -1 or end == -1:
-        raise ExtractionError(f"No JSON object in model output:\n{text[:500]}")
-    data = json.loads(text[start:end + 1])
-
+def _coerce(data: dict) -> dict:
     rows = []
     for r in data.get("rows", []) or []:
         rnd = str(r.get("round", "")).strip() or "R1"
         q = str(r.get("question", "")).strip()
         if q:
             rows.append({"round": rnd, "question": q})
-
     reason = str(data.get("reason_for_rejection", "")).strip() or DEFAULT_REASON
     return {
         "phone_number": normalize_phone(str(data.get("phone_number", ""))),
@@ -134,24 +125,31 @@ def _parse(text: str) -> dict:
     }
 
 
-def extract_call(transcript: str, api_key: str, model: str = "gemini-3.5-flash",
+def extract_call(transcript: str, api_key: str, model: str = "gpt-5.1",
                  max_tokens: int = 8000, max_retries: int = 2) -> dict:
-    client = genai.Client(api_key=api_key)
-    cfg = types.GenerateContentConfig(
-        system_instruction=SYSTEM_PROMPT,
-        max_output_tokens=max_tokens,
-        temperature=0,
-        response_mime_type="application/json",
-        response_schema=_RESPONSE_SCHEMA,
-    )
-    prompt = f"Debrief call transcript:\n\n{transcript}"
+    client = OpenAI(api_key=api_key)
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": f"Debrief call transcript:\n\n{transcript}"},
+    ]
     last_err = None
-    for attempt in range(max_retries + 1):
-        resp = client.models.generate_content(model=model, contents=prompt, config=cfg)
+    for _ in range(max_retries + 1):
+        resp = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_completion_tokens=max_tokens,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {"name": "call_result", "schema": _RESPONSE_SCHEMA, "strict": True},
+            },
+        )
+        msg = resp.choices[0].message
+        if getattr(msg, "refusal", None):
+            raise ExtractionError(f"Model refused: {msg.refusal}")
         try:
-            return _parse(resp.text)
-        except (ExtractionError, json.JSONDecodeError) as e:
+            return _coerce(json.loads(msg.content))
+        except (json.JSONDecodeError, TypeError) as e:
             last_err = e
-            prompt = (f"{prompt}\n\nYour previous answer failed to parse: {e}\n"
-                      "Return corrected STRICT JSON only.")
+            messages.append({"role": "user", "content":
+                             f"Your previous reply was not valid JSON ({e}). Return the object again."})
     raise ExtractionError(f"Extraction failed after {max_retries + 1} attempts: {last_err}")

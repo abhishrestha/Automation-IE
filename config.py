@@ -6,7 +6,7 @@
 
 Secrets/keys expected:
   google_sheet_id, google_worksheet_name
-  openai_api_key, gemini_api_key
+  openai_api_key   (used for both Whisper transcription and question extraction)
   Google service account: either google_credentials_file (a path) OR a
   [gcp_service_account] table / google_credentials_json string (for cloud).
 """
@@ -20,7 +20,7 @@ _DEFAULTS = {
     "google_worksheet_name": "Sheet1",
     "google_credentials_file": "credentials.json",
     "transcription_model": "whisper-1",
-    "extraction_model": "gemini-3.5-flash",
+    "extraction_model": "gpt-5.1",
     "extraction_max_tokens": 8000,
 }
 
@@ -50,7 +50,6 @@ def load_config(path: str = "config.yaml") -> dict:
     cfg["google_sheet_id"] = pick("google_sheet_id", "GOOGLE_SHEET_ID")
     cfg["google_worksheet_name"] = pick("google_worksheet_name", "GOOGLE_WORKSHEET_NAME") or "Sheet1"
     cfg["openai_api_key"] = pick("openai_api_key", "OPENAI_API_KEY")
-    cfg["gemini_api_key"] = pick("gemini_api_key", "GEMINI_API_KEY", "GOOGLE_API_KEY")
     cfg["extraction_model"] = pick("extraction_model", "EXTRACTION_MODEL") or _DEFAULTS["extraction_model"]
 
     # Service account: prefer an inline dict (cloud), fall back to a file path (local).
@@ -61,7 +60,7 @@ def load_config(path: str = "config.yaml") -> dict:
             sa = json.loads(raw)
     cfg["google_credentials_dict"] = dict(sa) if sa else None
 
-    missing = [k for k in ("google_sheet_id", "openai_api_key", "gemini_api_key") if not cfg.get(k)]
+    missing = [k for k in ("google_sheet_id", "openai_api_key") if not cfg.get(k)]
     if not cfg["google_credentials_dict"] and not Path(cfg["google_credentials_file"]).exists():
         missing.append("google service account (credentials.json or gcp_service_account secret)")
     if missing:

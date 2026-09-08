@@ -35,7 +35,7 @@ def _process(path, cfg, is_transcript, save, phone_override):
             print(f"  saved {tp}")
 
     print("  extracting questions + outcome ...")
-    call = extract_call(transcript, cfg["gemini_api_key"],
+    call = extract_call(transcript, cfg["openai_api_key"],
                         cfg["extraction_model"], int(cfg["extraction_max_tokens"]))
     call["phone_number"] = (normalize_phone(phone_override) if phone_override
                             else call["phone_number"] or detect_phone_from_name(Path(path).name))

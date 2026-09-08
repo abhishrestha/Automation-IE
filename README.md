@@ -19,7 +19,7 @@ Rules:
   `No questions collected from the call`.
 
 ## Pipeline
-`audio → OpenAI Whisper transcript → Gemini extraction (questions + phone + outcome) → gspread append`
+`audio → OpenAI Whisper transcript → OpenAI (gpt-5.1) extraction (questions + phone + outcome) → gspread append`
 
 ## Setup
 
@@ -34,9 +34,8 @@ cp config.example.yaml config.yaml   # then fill in (see below)
 **config.yaml** needs:
 - `google_sheet_id` — the long id in the sheet URL (`.../d/THIS_PART/edit`)
 - `google_worksheet_name` — the tab name (default `Sheet1`)
-- `openai_api_key` (Whisper) and `gemini_api_key` (extraction) — or set env
-  `OPENAI_API_KEY` / `GEMINI_API_KEY` instead. Get a Gemini key at
-  [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+- `openai_api_key` — one key for both transcription (Whisper) and extraction
+  (gpt-5.1). Or set env `OPENAI_API_KEY`.
 
 **Google Sheets access (service account, no OAuth popup):**
 1. [Google Cloud Console](https://console.cloud.google.com) → new project → enable **Google Sheets API**.
@@ -71,7 +70,7 @@ questions in the table → **② Append to Google Sheet**.
 | `app.py` | Streamlit upload UI |
 | `process_call.py` | CLI entrypoint |
 | `transcription.py` | OpenAI Whisper wrapper (25 MB/file limit guard) |
-| `extraction.py` | Gemini call + prompt + strict-JSON parse + retry |
+| `extraction.py` | OpenAI call + prompt + strict JSON-schema parse + retry |
 | `sheets_writer.py` | 4-column append via gspread (+ transient-error retry) |
 | `config.py` | config.yaml + env var loading |
 
@@ -92,7 +91,7 @@ The service account still needs Editor access on the target sheet (same as local
 Other options: Render / Railway / Fly.io work too — run
 `streamlit run app.py --server.port $PORT --server.address 0.0.0.0` and set the
 same values as environment variables (`GOOGLE_SHEET_ID`, `OPENAI_API_KEY`,
-`GEMINI_API_KEY`, `GOOGLE_CREDENTIALS_JSON` = the credentials.json contents on one line).
+`GOOGLE_CREDENTIALS_JSON` = the credentials.json contents on one line).
 
 ## Tuning the question wording
 Edit `SYSTEM_PROMPT` in `extraction.py`. Test with `process_call.py <file> --dry-run`

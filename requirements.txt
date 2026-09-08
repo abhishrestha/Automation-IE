@@ -1,5 +1,4 @@
-google-genai>=1.0.0
-openai>=1.40.0
+openai>=1.55.0
 gspread>=6.0.0
 google-auth>=2.30.0
 pyyaml>=6.0

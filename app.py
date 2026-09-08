@@ -67,7 +67,7 @@ if go:
                 (Path("transcripts") / f"{Path(up.name).stem}.txt").write_text(transcript)
             with st.spinner(f"Extracting from {up.name} …"):
                 call = extract_call(
-                    transcript, cfg["gemini_api_key"],
+                    transcript, cfg["openai_api_key"],
                     cfg["extraction_model"], int(cfg["extraction_max_tokens"]),
                 )
             call["phone_number"] = call["phone_number"] or detect_phone_from_name(up.name)
