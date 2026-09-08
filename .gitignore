@@ -1,0 +1,16 @@
+config.yaml
+credentials.json
+.env
+.streamlit/secrets.toml
+__pycache__/
+*.pyc
+venv/
+.venv/
+*.mp3
+*.wav
+*.m4a
+*.mp4
+*.webm
+*.ogg
+transcripts/
+recordings/
