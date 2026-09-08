@@ -134,7 +134,7 @@ def _parse(text: str) -> dict:
     }
 
 
-def extract_call(transcript: str, api_key: str, model: str = "gemini-2.5-pro",
+def extract_call(transcript: str, api_key: str, model: str = "gemini-3.5-flash",
                  max_tokens: int = 8000, max_retries: int = 2) -> dict:
     client = genai.Client(api_key=api_key)
     cfg = types.GenerateContentConfig(

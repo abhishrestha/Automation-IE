@@ -20,7 +20,7 @@ _DEFAULTS = {
     "google_worksheet_name": "Sheet1",
     "google_credentials_file": "credentials.json",
     "transcription_model": "whisper-1",
-    "extraction_model": "gemini-2.5-pro",
+    "extraction_model": "gemini-3.5-flash",
     "extraction_max_tokens": 8000,
 }
 

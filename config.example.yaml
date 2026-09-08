@@ -8,5 +8,5 @@ openai_api_key: "sk-..."      # Whisper transcription; or set env OPENAI_API_KEY
 gemini_api_key: "AIza..."     # question extraction; or set env GEMINI_API_KEY
 
 transcription_model: "whisper-1"       # or "gpt-4o-transcribe" (better on noisy calls)
-extraction_model: "gemini-2.5-pro"     # accuracy-first; "gemini-2.5-flash" is cheaper/faster
+extraction_model: "gemini-3.5-flash"     # stable + good. Paid plans can use "gemini-pro-latest" for higher accuracy.
 extraction_max_tokens: 8000
